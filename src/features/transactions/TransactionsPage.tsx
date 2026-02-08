@@ -1,42 +1,43 @@
 import { useState, useCallback } from "react";
 import type { Transaction } from "./types";
-import {
-  getInitialData,
-  saveTransactions,
-} from "./storage/transactionsStorage";
+import { useTransactionStore } from "./useTransactionStore";
 import TransactionForm from "./components/TransactionForm";
 import TransactionTable from "./components/TransactionTable";
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(getInitialData);
+  const { dispatch, getTransactions, summary } = useTransactionStore();
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
 
-  /** 状態を更新すると同時に localStorage にも保存する */
-  function updateTransactions(next: Transaction[]) {
-    setTransactions(next);
-    saveTransactions(next);
-  }
+  const transactions = getTransactions();
 
-  /** 新規登録 or 更新 */
+  /** 新規登録 or 更新（Command を発行） */
   const handleSubmit = useCallback(
     (data: Omit<Transaction, "id">) => {
       if (editTarget) {
-        // 更新
-        const updated = transactions.map((tx) =>
-          tx.id === editTarget.id ? { ...tx, ...data } : tx
-        );
-        updateTransactions(updated);
+        dispatch({
+          type: "UpdateTransaction",
+          payload: {
+            id: editTarget.id,
+            date: data.date,
+            transactionType: data.type,
+            amount: data.amount,
+            memo: data.memo,
+          },
+        });
         setEditTarget(null);
       } else {
-        // 新規登録
-        const newTx: Transaction = {
-          ...data,
-          id: Date.now().toString(),
-        };
-        updateTransactions([...transactions, newTx]);
+        dispatch({
+          type: "CreateTransaction",
+          payload: {
+            date: data.date,
+            transactionType: data.type,
+            amount: data.amount,
+            memo: data.memo,
+          },
+        });
       }
     },
-    [editTarget, transactions]
+    [editTarget, dispatch]
   );
 
   /** 編集開始 */
@@ -49,22 +50,23 @@ export default function TransactionsPage() {
     setEditTarget(null);
   }, []);
 
-  /** 削除 */
+  /** 削除（Command を発行） */
   const handleDelete = useCallback(
     (id: string) => {
-      const next = transactions.filter((tx) => tx.id !== id);
-      updateTransactions(next);
-      // 編集中の項目が削除されたら編集モードを解除
+      dispatch({
+        type: "DeleteTransaction",
+        payload: { id },
+      });
       if (editTarget?.id === id) {
         setEditTarget(null);
       }
     },
-    [transactions, editTarget]
+    [dispatch, editTarget]
   );
 
   return (
     <div className="transactions-page">
-      <h1>収支管理</h1>
+      <h1>収支管理 <small>(ES/CQRS)</small></h1>
       <TransactionForm
         editTarget={editTarget}
         onSubmit={handleSubmit}
@@ -72,6 +74,7 @@ export default function TransactionsPage() {
       />
       <TransactionTable
         transactions={transactions}
+        summary={summary}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />

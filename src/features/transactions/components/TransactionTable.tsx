@@ -3,6 +3,8 @@ import type { Transaction, FilterType } from "../types";
 
 type Props = {
   transactions: Transaction[];
+  /** Query 側（Projection）で計算済みのサマリ */
+  summary: { income: number; expense: number; balance: number };
   onEdit: (tx: Transaction) => void;
   onDelete: (id: string) => void;
 };
@@ -14,6 +16,7 @@ function formatAmount(n: number): string {
 
 export default function TransactionTable({
   transactions,
+  summary,
   onEdit,
   onDelete,
 }: Props) {
@@ -28,17 +31,6 @@ export default function TransactionTable({
     return [...list].sort((a, b) => b.date.localeCompare(a.date));
   }, [transactions, filter]);
 
-  // サマリ計算（フィルタ前の全データ対象）
-  const summary = useMemo(() => {
-    const income = transactions
-      .filter((tx) => tx.type === "income")
-      .reduce((sum, tx) => sum + tx.amount, 0);
-    const expense = transactions
-      .filter((tx) => tx.type === "expense")
-      .reduce((sum, tx) => sum + tx.amount, 0);
-    return { income, expense, balance: income - expense };
-  }, [transactions]);
-
   function handleDelete(id: string) {
     if (window.confirm("この取引を削除しますか？")) {
       onDelete(id);
@@ -47,7 +39,7 @@ export default function TransactionTable({
 
   return (
     <div className="tx-table-wrapper">
-      {/* サマリ */}
+      {/* サマリ（Query Projection から取得） */}
       <div className="summary">
         <span className="summary-item income">
           入金合計: ¥{formatAmount(summary.income)}

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { EventStore } from "./events/eventStore";
+import { migrateFromOldFormat } from "./events/migration";
 import type { Command, CommandResult } from "./commands/types";
 import { handleCommand } from "./commands/handlers";
 import {
@@ -56,6 +57,11 @@ function seedIfEmpty(store: EventStore): void {
 export function useTransactionStore() {
   const storeRef = useRef<EventStore | null>(null);
   if (!storeRef.current) {
+    // 旧形式データがあれば自動移行（transactions → transaction_events）
+    const migrated = migrateFromOldFormat();
+    if (migrated > 0) {
+      console.log(`[migration] 旧データ ${migrated} 件をイベント形式に移行しました`);
+    }
     storeRef.current = new EventStore();
     seedIfEmpty(storeRef.current);
   }
